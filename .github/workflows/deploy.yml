@@ -80,6 +80,18 @@ jobs:
           mkdir -p _site_publish
           # 1) Static scaffolding: landing page, Jekyll config + layout, blog shell.
           if [ -d site ]; then cp -r site/. _site_publish/; fi
+          # 1b) Tell Jekyll the site's base path so the blog's `relative_url` links
+          #     resolve. Derive it from the repo (no hardcoded project name): a custom
+          #     domain (CNAME) or a user/org root site (<owner>.github.io) is served at
+          #     the domain root (baseurl ""); any other repo is served under /<repo>.
+          repo="${GITHUB_REPOSITORY##*/}"
+          if [ -f _site_publish/CNAME ] || [ "${repo%.github.io}" != "$repo" ]; then
+            base=""
+          else
+            base="/$repo"
+          fi
+          printf '\n# Injected by deploy.yml so the blog renders with the right base path.\nbaseurl: "%s"\n' "$base" >> _site_publish/_config.yml
+          echo "Set Jekyll baseurl to '${base}'."
           # 2) The built app under /<app_path>/ — only if this project has one yet.
           if [ -n "${DIST_DIR}" ] && [ -d "${DIST_DIR}" ]; then
             mkdir -p "_site_publish/${APP_PATH}"
@@ -138,6 +150,31 @@ jobs:
           publish_dir: ./_site_publish
           publish_branch: gh-pages
           keep_files: true
+          enable_jekyll: true   # do not write .nojekyll — /blog/ is rendered by Jekyll
           user_name: "github-actions[bot]"
           user_email: "github-actions[bot]@users.noreply.github.com"
           commit_message: "Deploy site + blog for ${{ github.sha }}"
+
+      - name: Remove stale .nojekyll so GitHub renders /blog/ with Jekyll
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Earlier deploys (peaceiris' default) wrote a root .nojekyll that disables
+          # Jekyll site-wide, so /blog/ served raw Liquid. We now publish with
+          # enable_jekyll: true, but keep_files preserves the old file -- delete it
+          # once. Idempotent: a no-op (no push) once it is gone.
+          tmp="$(mktemp -d)"
+          git clone --depth 1 --single-branch --branch gh-pages \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$tmp"
+          if [ -f "$tmp/.nojekyll" ]; then
+            git -C "$tmp" rm -q .nojekyll
+            git -C "$tmp" \
+              -c user.name="github-actions[bot]" \
+              -c user.email="github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "Remove .nojekyll so Jekyll renders /blog/"
+            git -C "$tmp" push -q origin gh-pages
+            echo "Removed stale .nojekyll."
+          else
+            echo "No .nojekyll present -- nothing to do."
+          fi

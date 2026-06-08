@@ -62,4 +62,21 @@ Each entry records: date, symptom, root cause, fix, and how to prevent recurrenc
   deploy and PR previews; compute the base from the URL. Click a cross-link in every
   preview.
 
+## 2026-06-08 — Blog served raw Liquid (`.nojekyll` disabled Jekyll) + links missing base path
+
+- **Symptom:** `/blog/` showed its template *source* — `--- layout: default ---`,
+  `{% if … %}`, `{{ post.title }}` — instead of rendered HTML.
+- **Root cause:** `peaceiris/actions-gh-pages` writes a root `.nojekyll` by default,
+  which turns Jekyll off site-wide, so the blog's front-matter/Liquid was never
+  processed. A second, latent bug: `_config.yml` set no `baseurl`, so the layout's
+  `relative_url` links (`{{ '/blog/' | relative_url }}`, `{{ post.url | relative_url }}`)
+  would resolve to the *domain* root and 404 even once rendered.
+- **Fix (`deploy.yml`):** publish with `enable_jekyll: true` (stop writing `.nojekyll`)
+  and delete the stale one once via a guarded step; derive `baseurl` from the repo at
+  deploy time and inject it into `_config.yml` (project site → `/<repo>`; user/org root
+  or custom-domain/CNAME → `""`), so nothing is hardcoded.
+- **Prevention:** when a gh-pages deploy action is involved, confirm Jekyll is actually
+  enabled (no `.nojekyll`) if any page needs rendering; for project sites always set
+  `baseurl`, and *derive* it rather than hardcode so the template stays portable.
+
 <!-- Add new entries above this line. -->
