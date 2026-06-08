@@ -105,9 +105,9 @@ specs/<NNN-spec-name>/
     └── screenshots/     # images referenced as screenshots/<name>.png
 ```
 
-Significant posts also open with an optional **hero** — the single most compelling
-screenshot or piece of evidence — to draw readers in; when unsure what to feature,
-offer the maintainer options to choose from. Every post covers: **the problem**,
+Significant posts also open with an **"at a glance" highlight** — a one-line bold
+takeaway plus the single most compelling screenshot or piece of evidence — to draw
+readers in; when unsure what to feature, offer the maintainer options to choose from. Every post covers: **the problem**,
 **options**, **the strategy**, **the results**, and **screenshots** (whenever the
 feature is graphical). Hook points in
 the spec-kit lifecycle:
