@@ -8,5 +8,6 @@ evidence (e.g. `specs/<feature>/evidence/`).
 | Date | Ticket | Summary | Links |
 |------|--------|---------|-------|
 | 2026-06-08 | — | Example: initial project scaffolding from template | `specs/001-…/` |
+| 2026-06-08 | PR #2 | Fold blog publishing into `deploy.yml` (fix per-merge `gh-pages` concurrency cancellation) | [#2](https://github.com/IanMayo/repo_template/pull/2) |
 
 <!-- Add new rows above as work completes. -->
