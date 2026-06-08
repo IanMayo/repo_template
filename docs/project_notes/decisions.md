@@ -38,4 +38,21 @@ consequences. Link evidence (e.g. `specs/<feature>/evidence/`) where relevant.
   logic is a labelled, customisable step rather than its own workflow. PR previews
   stay separate (different event) and share the group only to serialise.
 
+## ADR-0003 (2026-06-08) — Enable Jekyll on gh-pages and derive `baseurl` at deploy
+
+- **Context:** the blog under `/blog/` needs Jekyll, but `peaceiris/actions-gh-pages`
+  disables it by default (writes `.nojekyll`); and a project site served at `/<repo>/`
+  needs `site.baseurl` set for the blog's `relative_url` links to resolve — yet a
+  reusable template must not hardcode the repo name.
+- **Decision:** publish with `enable_jekyll: true` (and remove any pre-existing
+  `.nojekyll` once), and inject `baseurl` into `_config.yml` at deploy time, derived
+  from `GITHUB_REPOSITORY`: `""` for a user/org root site or a custom domain (CNAME),
+  `/<repo>` otherwise.
+- **Options considered:** (a) hardcode `baseurl` — breaks on fork/rename; (b) make
+  template users set it manually — blog broken out of the box; (c) rewrite templates to
+  avoid `baseurl` — invasive, awkward for `post.url`; (d) derive it at deploy — chosen.
+- **Consequences:** the blog renders and links correctly on any repo with no manual
+  config; the static-vs-Jekyll boundary stays simply "has front-matter?", so the app
+  and previews remain untouched. Custom domains are handled via the CNAME check.
+
 <!-- Add new ADRs above this line. -->
