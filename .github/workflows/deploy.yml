@@ -103,8 +103,10 @@ jobs:
           # workflow_dispatch or a first/force push -- so a manual run rebuilds all.
           if [ -n "${BEFORE:-}" ] && [ "${BEFORE}" != "0000000000000000000000000000000000000000" ] \
              && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            # grep exits 1 when this push changed no blog files; tolerate that with
+            # `|| true` so the step does not abort under `set -o pipefail` / `bash -e`.
             changed_specs="$(git diff --name-only "${BEFORE}" "${AFTER}" -- specs \
-                             | grep -E '^specs/[^/]+/blog/' \
+                             | { grep -E '^specs/[^/]+/blog/' || true; } \
                              | sed -E 's#^(specs/[^/]+)/blog/.*#\1/blog#' | sort -u)"
           else
             changed_specs="$(printf '%s\n' specs/*/blog | sort -u)"

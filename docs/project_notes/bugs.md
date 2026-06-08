@@ -32,4 +32,17 @@ Each entry records: date, symptom, root cause, fix, and how to prevent recurrenc
 - **Prevention:** do not put two workflows that trigger on the *same* event in the
   same concurrency group; serialise same-event `gh-pages` writers within one run.
 
+## 2026-06-08 — Deploy fails on merges that touch no blog post (set -e + grep)
+
+- **Symptom:** `Deploy site to GitHub Pages` failed (exit 1) on the PR #2 merge at
+  the "Add blog posts introduced by this push" step; `gh-pages` was not updated.
+- **Root cause:** the change-detection pipeline `git diff … | grep … | sed … | sort`
+  runs under `set -euo pipefail` (and GitHub's `bash -e`). When the push changed no
+  `specs/*/blog/` file, `grep` matches nothing and exits 1; `pipefail` propagates it
+  and `set -e` turns it into a step abort — so the deploy fails on nearly every merge.
+- **Fix:** wrap the no-match-prone stage as `{ grep -E '…' || true; }` so an empty
+  match is exit 0, while real `git`/`sed`/`sort` failures still propagate.
+- **Prevention:** under `set -e`/`pipefail`, any `grep` used as a *filter* (not a
+  test) must tolerate the no-match exit; always exercise the empty-input path in tests.
+
 <!-- Add new entries above this line. -->
