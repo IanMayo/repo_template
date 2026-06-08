@@ -45,4 +45,21 @@ Each entry records: date, symptom, root cause, fix, and how to prevent recurrenc
 - **Prevention:** under `set -e`/`pipefail`, any `grep` used as a *filter* (not a
   test) must tolerate the no-match exit; always exercise the empty-input path in tests.
 
+## 2026-06-08 — PR-preview nav links 404 (relative links assume `/app/` depth)
+
+- **Symptom:** in a PR preview (`/pr-preview/pr-<n>/`), the demo app's "Landing" and
+  "Blog" nav links 404'd, although the same links worked in the real `/app/` deploy.
+- **Root cause:** the links were relative (`../`, `../blog/`) — correct for the app's
+  production mount one level under root (`/<base>/app/`), but wrong in a preview, which
+  sits a level deeper (`/<base>/pr-preview/pr-<n>/`), so `../` resolved to
+  `/<base>/pr-preview/` instead of the site root. (The preview contains only the app,
+  so there is no preview-local Landing/Blog to reach anyway.)
+- **Fix:** derive the site root from `location.pathname` at runtime (strip the trailing
+  `app/` or `pr-preview/pr-N/` segment) and set the hrefs from it, so the nav points at
+  the live hosted pages from any mount depth — with no base path hardcoded, keeping the
+  template reusable under any repo name, root site, or custom domain.
+- **Prevention:** never assume a fixed mount depth for links shared between the `/app/`
+  deploy and PR previews; compute the base from the URL. Click a cross-link in every
+  preview.
+
 <!-- Add new entries above this line. -->
