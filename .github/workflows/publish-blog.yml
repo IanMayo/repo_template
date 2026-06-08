@@ -18,16 +18,37 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Full history so we can diff this push (before..after) and act only on
+          # the blog content it introduced.
+          fetch-depth: 0
 
-      - name: Collect blog posts from completed specs
+      - name: Collect blog posts introduced by this push
         id: sync
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
         run: |
           set -euo pipefail
           rm -rf _blog_publish
           mkdir -p _blog_publish/blog/_posts _blog_publish/blog/assets
           shopt -s nullglob
+
+          # Act only on the specs/<NNN>/blog/ folders this push changed (keep_files
+          # below preserves everything already published). Fall back to scanning all
+          # specs when there is no usable base commit -- a manual workflow_dispatch or
+          # a first/force push -- so a manual run can rebuild everything.
+          if [ -n "${BEFORE:-}" ] && [ "${BEFORE}" != "0000000000000000000000000000000000000000" ] \
+             && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            changed_specs="$(git diff --name-only "${BEFORE}" "${AFTER}" -- specs \
+                             | grep -E '^specs/[^/]+/blog/' \
+                             | sed -E 's#^(specs/[^/]+)/blog/.*#\1/blog#' | sort -u)"
+          else
+            changed_specs="$(printf '%s\n' specs/*/blog | sort -u)"
+          fi
+
           found=0
-          for specdir in specs/*/blog; do
+          for specdir in ${changed_specs}; do
             [ -f "$specdir/post.md" ] || continue
             found=1
             spec="$(basename "$(dirname "$specdir")")"
