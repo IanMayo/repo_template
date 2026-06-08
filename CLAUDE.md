@@ -105,8 +105,11 @@ specs/<NNN-spec-name>/
     └── screenshots/     # images referenced as screenshots/<name>.png
 ```
 
-Every post covers: **the problem**, **options**, **the strategy**, **the
-results**, and **screenshots** (whenever the feature is graphical). Hook points in
+Significant posts also open with an optional **hero** — the single most compelling
+screenshot or piece of evidence — to draw readers in; when unsure what to feature,
+offer the maintainer options to choose from. Every post covers: **the problem**,
+**options**, **the strategy**, **the results**, and **screenshots** (whenever the
+feature is graphical). Hook points in
 the spec-kit lifecycle:
 
 - **At `/speckit.plan`:** sketch the post's structure and note which screenshots
