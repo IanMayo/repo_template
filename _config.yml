@@ -30,3 +30,6 @@ exclude:
   - Gemfile
   - Gemfile.lock
   - README.md
+
+# Injected by deploy.yml so the blog renders with the right base path.
+baseurl: "/repo_template"
