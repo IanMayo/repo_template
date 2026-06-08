@@ -121,13 +121,17 @@ approach, and results before diving into the diff.
 
 ### On merge
 
-The `Publish blog on merge` workflow (`.github/workflows/publish-blog.yml`) copies
-every `specs/*/blog/post.md` to `blog/_posts/YYYY-MM-DD-<spec>.md` on the
-`gh-pages` branch (screenshots to `blog/assets/<spec>/`, image paths rewritten);
-Jekyll then renders it at `/blog/<spec>/`.
+The deploy workflow (`.github/workflows/deploy.yml`) publishes the blog as part of
+each push to `main`: it copies the `specs/*/blog/post.md` that push introduced to
+`blog/_posts/YYYY-MM-DD-<spec>.md` on the `gh-pages` branch (screenshots to
+`blog/assets/<spec>/`, image paths rewritten); Jekyll then renders it at
+`/blog/<spec>/`. Blog publishing lives in `deploy.yml` (not a separate workflow) so
+every push-to-main `gh-pages` write happens in one run — two workflows triggering on
+the same merge would otherwise cancel each other on the shared concurrency group
+(see `docs/project_notes/decisions.md`, ADR-0002).
 
 **To customise:** edit the markdown template (`docs/blog-post-template.md`), the
-front matter, or the publish workflow. Because spec-kit is installed fresh, adapt
+front matter, or the blog step in `deploy.yml`. Because spec-kit is installed fresh, adapt
 its `plan` / `implement` commands in your own checkout if you want the post drafted
 automatically.
 
@@ -178,7 +182,7 @@ The site is served from the `gh-pages` branch and has four parts:
 |------|------|--------------|
 | `/` | Landing / navigation hub (`site/index.html`) | `deploy.yml` (push to `main`) |
 | `/app/` | The built application | `deploy.yml` (push to `main`) |
-| `/blog/` | Jekyll-rendered blog | `publish-blog.yml` (on merge) |
+| `/blog/` | Jekyll-rendered blog | `deploy.yml` (push to `main`) |
 | `/pr-preview/pr-<n>/` | Per-PR preview + a PR comment with the link | `pr-preview.yml` (PR events) |
 
 Deployment is **config-driven**: `pages.config.yml` holds the app name, build

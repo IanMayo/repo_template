@@ -55,7 +55,7 @@ These are GitHub settings that cannot be set from code:
 ## Layout
 
 ```
-.github/workflows/   deploy.yml · pr-preview.yml · publish-blog.yml
+.github/workflows/   deploy.yml · pr-preview.yml
 pages.config.yml     deployment configuration (edit me)
 site/                landing page, Jekyll config + layout, blog shell
 docs/project_notes/  decisions · bugs · key_facts · issues
