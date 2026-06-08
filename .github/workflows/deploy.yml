@@ -8,8 +8,11 @@ on:
 permissions:
   contents: write
 
-# Serialise every writer to the gh-pages branch (deploy / blog publish / PR
-# previews all share this group) so they never race each other.
+# Serialise every writer to the gh-pages branch. Deploy AND blog publishing happen
+# in this single workflow run (one push to gh-pages), so a merge can never have one
+# cancel the other on a shared concurrency group; PR previews share this same group
+# from their own workflow (a different, staggered event, so they queue rather than
+# race).
 concurrency:
   group: gh-pages
   cancel-in-progress: false
@@ -20,6 +23,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Full history so the blog step can diff this push (before..after) and
+          # publish only the spec blog content it introduced.
+          fetch-depth: 0
 
       - name: Read pages.config.yml
         id: cfg
@@ -81,6 +88,47 @@ jobs:
             echo "No app at '${DIST_DIR}' yet — publishing scaffolding only."
           fi
 
+      - name: Add blog posts introduced by this push
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p _site_publish/blog/_posts _site_publish/blog/assets
+          shopt -s nullglob
+
+          # Act only on the specs/<NNN>/blog/ folders this push changed (keep_files
+          # on publish preserves everything already on gh-pages). Fall back to
+          # scanning all specs when there is no usable base commit -- a manual
+          # workflow_dispatch or a first/force push -- so a manual run rebuilds all.
+          if [ -n "${BEFORE:-}" ] && [ "${BEFORE}" != "0000000000000000000000000000000000000000" ] \
+             && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            changed_specs="$(git diff --name-only "${BEFORE}" "${AFTER}" -- specs \
+                             | grep -E '^specs/[^/]+/blog/' \
+                             | sed -E 's#^(specs/[^/]+)/blog/.*#\1/blog#' | sort -u)"
+          else
+            changed_specs="$(printf '%s\n' specs/*/blog | sort -u)"
+          fi
+
+          for specdir in ${changed_specs}; do
+            [ -f "$specdir/post.md" ] || continue
+            spec="$(basename "$(dirname "$specdir")")"
+            # Date: first YYYY-MM-DD on the front-matter `date:` line, else today.
+            date="$(grep -m1 -iE '^date:' "$specdir/post.md" 2>/dev/null \
+                    | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -n1 || true)"
+            [ -n "$date" ] || date="$(date +%F)"
+            post="_site_publish/blog/_posts/${date}-${spec}.md"
+            cp "$specdir/post.md" "$post"
+            if [ -d "$specdir/screenshots" ]; then
+              mkdir -p "_site_publish/blog/assets/${spec}"
+              cp -r "$specdir/screenshots/." "_site_publish/blog/assets/${spec}/"
+              # Rewrite in-post image paths to the published, baseurl-safe location
+              # relative to the post URL (/blog/<spec>/ -> ../assets/<spec>/).
+              sed -i "s#screenshots/#../assets/${spec}/#g" "$post"
+            fi
+            echo "Prepared blog post: ${date}-${spec}.md"
+          done
+
       - name: Publish to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
@@ -90,4 +138,4 @@ jobs:
           keep_files: true
           user_name: "github-actions[bot]"
           user_email: "github-actions[bot]@users.noreply.github.com"
-          commit_message: "Deploy site for ${{ github.sha }}"
+          commit_message: "Deploy site + blog for ${{ github.sha }}"
