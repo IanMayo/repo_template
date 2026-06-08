@@ -1,0 +1,93 @@
+name: Deploy site to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Serialise every writer to the gh-pages branch (deploy / blog publish / PR
+# previews all share this group) so they never race each other.
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read pages.config.yml
+        id: cfg
+        run: |
+          set -euo pipefail
+          # Portable reader for a top-level "key: value" scalar (no yq dependency,
+          # so behaviour is identical regardless of the runner's yq variant).
+          read_cfg() {
+            local line v
+            line="$(grep -m1 -E "^[[:space:]]*$1:" pages.config.yml || true)"
+            v="${line#*:}"
+            v="$(printf '%s' "$v" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+            case "$v" in
+              \"*\") v="${v#\"}"; v="${v%\"}" ;;
+              \'*\') v="${v#\'}"; v="${v%\'}" ;;
+            esac
+            [ -n "$v" ] || v="$2"
+            printf '%s' "$v"
+          }
+          {
+            echo "app_name=$(read_cfg app_name 'App')"
+            echo "build_command=$(read_cfg build_command '')"
+            echo "dist_dir=$(read_cfg dist_dir 'app')"
+            echo "app_path=$(read_cfg app_path 'app')"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build app (only if a build command is configured)
+        env:
+          BUILD_COMMAND: ${{ steps.cfg.outputs.build_command }}
+        run: |
+          set -euo pipefail
+          if [ -n "${BUILD_COMMAND}" ]; then
+            echo "Running configured build: ${BUILD_COMMAND}"
+            bash -lc "${BUILD_COMMAND}"
+          else
+            echo "No build_command in pages.config.yml — nothing to build (static app)."
+          fi
+
+      - name: Assemble site (scaffolding + app)
+        env:
+          DIST_DIR: ${{ steps.cfg.outputs.dist_dir }}
+          APP_PATH: ${{ steps.cfg.outputs.app_path }}
+        run: |
+          set -euo pipefail
+          rm -rf _site_publish
+          mkdir -p _site_publish
+          # 1) Static scaffolding: landing page, Jekyll config + layout, blog shell.
+          if [ -d site ]; then cp -r site/. _site_publish/; fi
+          # 2) The built app under /<app_path>/ — only if this project has one yet.
+          if [ -n "${DIST_DIR}" ] && [ -d "${DIST_DIR}" ]; then
+            mkdir -p "_site_publish/${APP_PATH}"
+            cp -r "${DIST_DIR}/." "_site_publish/${APP_PATH}/"
+          else
+            echo "No app at '${DIST_DIR}' yet — publishing scaffolding only."
+          fi
+
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site_publish
+          publish_branch: gh-pages
+          keep_files: true
+          user_name: "github-actions[bot]"
+          user_email: "github-actions[bot]@users.noreply.github.com"
+          commit_message: "Deploy site for ${{ github.sha }}"

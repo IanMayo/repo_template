@@ -141,3 +141,17 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# --- Repo template additions ---
+
+# spec-kit active-feature override (per-worktree; see CLAUDE.md -> Active feature)
+.specify/.active-feature
+
+# Playwright run artifacts (evidence screenshots are committed under specs/*/evidence)
+/test-results/
+/playwright-report/
+
+# Pages output assembled locally by the deploy/preview workflows
+/_site_publish/
+/_preview/
+/_blog_publish/

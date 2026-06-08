@@ -1,0 +1,65 @@
+name: Publish blog on merge
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
+
+jobs:
+  publish-blog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Collect blog posts from completed specs
+        id: sync
+        run: |
+          set -euo pipefail
+          rm -rf _blog_publish
+          mkdir -p _blog_publish/blog/_posts _blog_publish/blog/assets
+          shopt -s nullglob
+          found=0
+          for specdir in specs/*/blog; do
+            [ -f "$specdir/post.md" ] || continue
+            found=1
+            spec="$(basename "$(dirname "$specdir")")"
+            # Date: first YYYY-MM-DD on the front-matter `date:` line, else today.
+            date="$(grep -m1 -iE '^date:' "$specdir/post.md" 2>/dev/null \
+                    | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -n1 || true)"
+            [ -n "$date" ] || date="$(date +%F)"
+            post="_blog_publish/blog/_posts/${date}-${spec}.md"
+            cp "$specdir/post.md" "$post"
+            if [ -d "$specdir/screenshots" ]; then
+              mkdir -p "_blog_publish/blog/assets/${spec}"
+              cp -r "$specdir/screenshots/." "_blog_publish/blog/assets/${spec}/"
+              # Rewrite in-post image paths to the published, baseurl-safe location
+              # relative to the post URL (/blog/<spec>/ -> ../assets/<spec>/).
+              sed -i "s#screenshots/#../assets/${spec}/#g" "$post"
+            fi
+            echo "Prepared post: ${date}-${spec}.md"
+          done
+          echo "found=$found" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to gh-pages
+        if: steps.sync.outputs.found == '1'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_blog_publish
+          publish_branch: gh-pages
+          keep_files: true
+          user_name: "github-actions[bot]"
+          user_email: "github-actions[bot]@users.noreply.github.com"
+          commit_message: "Publish blog posts for ${{ github.sha }}"
+
+      - name: Nothing to publish
+        if: steps.sync.outputs.found != '1'
+        run: echo "No specs/*/blog/post.md found — nothing to publish."
